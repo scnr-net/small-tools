@@ -1,0 +1,52 @@
+#!/bin/sh
+# http://johnlate.scnr.net/repo/small-tools
+
+set -e  # exit when any command fails
+set -u  # exit on expansion of unset parameter
+
+SGR_reset="$(printf '\033[0m')"
+SGR_magenta="$(printf '\033[35m')"
+
+COLOR_filename="$SGR_magenta"
+
+
+dump_key() {
+
+	# based on
+	# - https://en.wikibooks.org/wiki/OpenSSH/Cookbook/Authentication_Keys
+	# - https://www.lastbreach.com/en/blog/ssh-public-key-verification-with-fingerprinthash
+
+	HASH_SHA256="$(
+		awk '{print $2}' "$1" \
+			| base64 -d \
+			| sha256sum -b \
+			| sed 's/ .*$//' \
+			| xxd -r -p \
+			| base64
+	)"
+
+	HASH_MD5="$(
+		awk '{print $2}' "$1" \
+			| base64 -d \
+			| md5sum -b \
+			| sed 's/../&:/g; s/: .*$//'
+	)"
+
+
+	printf '%s%s%s:\n' "$COLOR_filename" "$1" "$SGR_reset"
+	printf '    MD5:    %s\n' "$HASH_MD5"
+	printf '    SHA256: %s\n' "$HASH_SHA256"
+}
+
+dump_keys() {
+	for X in "$@"; do
+		dump_key "$X"
+	done
+}
+
+
+if test "$#" -gt 0; then
+	dump_keys "$@"
+else
+	dump_keys /etc/ssh/ssh_host_*_key.pub
+fi
